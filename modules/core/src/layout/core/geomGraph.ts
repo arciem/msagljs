@@ -65,7 +65,7 @@ export class GeomGraph extends GeomNode {
   }
   /** The empty space between the graph inner entities and its boundary */
   margins = {left: 10, top: 10, bottom: 10, right: 10}
-  private rrect: RRect
+  rrect: RRect
   private _layoutSettings: ILayoutSettings
   private _labelSize: Size
   /** The X radius of the rounded rectangle border */
