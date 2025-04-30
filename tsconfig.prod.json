@@ -8,6 +8,8 @@
     "lib": ["dom", "es2018"],
     "importHelpers": true,
     "esModuleInterop": true,
-    "strictNullChecks": false
+    "strictNullChecks": false,
+    // Only look for types within the submodule's node_modules
+    "typeRoots": ["./node_modules/@types"]
   }
 }

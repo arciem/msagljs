@@ -79,3 +79,4 @@ export {Entity} from './structs/entity'
 export {ICurveJSONTyped, iCurveToJSON, JSONToICurve} from './math/geometry/icurve'
 export {AttributeRegistry} from './structs/attributeRegistry'
 export {IPsepColaSetting as FastIncrementalLayoutSettings} from './layout/incremental/iPsepColaSettings'
+export { RRect } from './layout/core/RRect';
