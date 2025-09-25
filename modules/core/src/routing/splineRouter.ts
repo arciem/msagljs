@@ -196,7 +196,7 @@ export class SplineRouter extends Algorithm {
     if (this.geomGraph.isEmpty()) {
       return
     }
-    console.time('SplineRouter')
+    //console.time('SplineRouter')
 
     const obstacles = ShapeCreator.GetShapes(this.geomGraph, this.edges)
     if (
@@ -212,7 +212,7 @@ export class SplineRouter extends Algorithm {
     this.GetOrCreateRoot()
     this.RouteOnRoot()
     this.RemoveRoot()
-    console.timeEnd('SplineRouter')
+    //console.timeEnd('SplineRouter')
   }
 
   /** Uses the existing routes and optimizing them only to avoid 'activeNodes'.   */
