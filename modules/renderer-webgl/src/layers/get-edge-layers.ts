@@ -1,8 +1,8 @@
-import {Layer} from '@deck.gl/core/typed'
+import {Layer, Accessor, Color} from '@deck.gl/core/typed'
 import {IconLayer, IconLayerProps, TextLayer, TextLayerProps} from '@deck.gl/layers/typed'
 import {Point, BezierSeg, Ellipse, Entity, Edge, GeomEdge, GeomLabel, CurveClip} from '@msagl/core'
 import {DrawingEdge, DrawingObject} from '@msagl/drawing'
-import {iconMapping} from './arrows'
+import {iconMapping, getIconAtlas} from './arrows'
 
 import CurveLayer, {CurveLayerProps} from './curve-layer'
 import {CURVE} from './curve-layer'
@@ -11,6 +11,8 @@ import GraphStyleExtension from './graph-style-extension'
 
 type EdgeLayerProps = CurveLayerProps<CurveClip> & {
   resolution?: number
+  pickable?: boolean
+  getPickingColor?: Accessor<CurveClip, Color>
 }
 
 export function getEdgeLayer(props: EdgeLayerProps, style: ParsedGraphEdgeLayerStyle): Layer {
@@ -24,12 +26,20 @@ export function getEdgeLayer(props: EdgeLayerProps, style: ParsedGraphEdgeLayerS
       return [d.startPar, d.endPar]
     },
     widthUnits: 'pixels',
+    // Thin curves and a translucent default keep dense graphs readable.
+    // Explicit edge colors retain their own alpha channel.
+    // A style's strokeWidth/strokeColor (if any) still override these via the
+    // GraphStyleExtension below.
+    getWidth: 0.5,
+    getColor: getCurveColor,
     // one vertex per 4 pixels
     getResolution: (d: CurveClip) => {
       return d.curve.length * props.resolution
     },
     // @ts-ignore
     clipByInstance: false,
+    pickable: props.pickable,
+    getPickingColor: props.getPickingColor,
 
     extensions: [
       new GraphStyleExtension({
@@ -55,9 +65,10 @@ export function getArrowHeadLayer(
     tip: Point
     edge: Edge
     base: Point
-  }>(props, {
+  }>({
+    ...props,
     id: `${props.id}-arrowhead`,
-    iconAtlas: 'deck://arrowAtlas',
+    iconAtlas: getIconAtlas(),
     iconMapping,
     getPosition: (d) => [d.tip.x, d.tip.y],
     getColor: (d) => getEdgeColor(d.edge),
@@ -66,7 +77,6 @@ export function getArrowHeadLayer(
     getAngle: (d) => getArrowAngle(d.tip, d.base),
     billboard: false,
     sizeUnits: 'common',
-
     extensions: [
       new GraphStyleExtension({
         overrideProps: {
@@ -126,13 +136,18 @@ function pointToArray(p: Point): [number, number] {
   return [p.x, p.y]
 }
 
-function getEdgeColor(e: Edge): [number, number, number] {
-  const drawinEdge = getDrawingObj<DrawingEdge>(e)
-  if (drawinEdge) {
-    const color = drawinEdge.color
-    if (color) return [color.R, color.G, color.B]
+function getCurveColor(cc: CurveClip): [number, number, number, number] {
+  // Overlapping edges can share one curve; use its first edge as the representative.
+  return getEdgeColor(cc.edges[0], 160)
+}
+
+function getEdgeColor(e: Edge, defaultAlpha = 255): [number, number, number, number] {
+  const drawingEdge = getDrawingObj<DrawingEdge>(e)
+  if (drawingEdge) {
+    const color = drawingEdge.color
+    if (color) return [color.R, color.G, color.B, color.A]
   }
-  return [0, 0, 0]
+  return [0, 0, 0, defaultAlpha]
 }
 
 function getEdgeType(e: Edge): string {
