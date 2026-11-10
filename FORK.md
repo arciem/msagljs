@@ -1,6 +1,6 @@
 # Fork notes
 
-This branch carries a small set of changes on top of upstream `microsoft/msagljs` at `@msagl/core` 1.1.23 (commit `5522eb13`). Everything else is upstream.
+This branch carries a small set of changes on top of upstream `microsoft/msagljs`. It is an update candidate: the fork's changes merged with upstream `main` at commit `ad462d11` (`@msagl/core` 1.1.24). Everything else is upstream.
 
 ## Changes
 
