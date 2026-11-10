@@ -1,6 +1,6 @@
 import {Shape} from './shape'
 import {mkRTree} from '../math/geometry/RTree/rTree'
-import {GeomEdge} from '../layout/core/geomEdge'
+import {GeomEdge, SelfLoopSettings} from '../layout/core/geomEdge'
 import {RelativeFloatingPort} from '../layout/core/relativeFloatingPort'
 import {Point} from '../math/geometry/point'
 import {Algorithm} from '../utils/algorithm'
@@ -125,6 +125,10 @@ export class SplineRouter extends Algorithm {
   set MultiEdgesSeparation(value: number) {
     this.multiEdgesSeparation = value
   }
+
+  /** Optional self-loop geometry used by every spline routing path of this router: single self-loops,
+   * groups of self-loops routed as multi-edges, and bundled routing. Unset keeps the original fixed loop. */
+  SelfLoopSettings: SelfLoopSettings
 
   static mk2(graph: GeomGraph, edgeRoutingSettings: EdgeRoutingSettings) {
     return SplineRouter.mk5(
@@ -597,6 +601,7 @@ export class SplineRouter extends Algorithm {
     //giving more importance to ink might produce weird routings with huge detours, maybe 0 is the best value here
     bs.InkImportance = 0.00001
     bs.EdgeSeparation = this.MultiEdgesSeparation
+    bs.selfLoopSettings = this.SelfLoopSettings
 
     const mer = new MultiEdgeRouter(multiEdges, interactiveEdgeRouter, nodeBoundaries, bs, (a) =>
       this.makeTransparentShapesOfEdgeAndGetTheShapes(a),
@@ -760,6 +765,8 @@ export class SplineRouter extends Algorithm {
       this.enterableTight,
       (port) => this.LoosePolyOfOriginalShape(this.portsToShapes.get(port)),
     )
+    // the router's own self-loop settings win; the caller's BundlingSettings object is not modified
+    if (this.SelfLoopSettings != null) bundleRouter.selfLoopSettings = this.SelfLoopSettings
     bundleRouter.run()
   }
 
@@ -934,7 +941,15 @@ export class SplineRouter extends Algorithm {
     if (!Point.closeDistEps(edge.sourcePort.Location, edge.targetPort.Location)) {
       edge.curve = iRouter.RouteSplineFromPortToPortWhenTheWholeGraphIsReady(edge.sourcePort, edge.targetPort, true, t)
     } else {
-      edge.curve = GeomEdge.RouteSelfEdge(edge.sourcePort.Curve, Math.max(this.LoosePadding * 2, edge.GetMaxArrowheadLength()), t)
+      const loop = GeomEdge.selfLoopIndexAndCount(edge)
+      edge.curve = GeomEdge.RouteSelfEdge(
+        edge.sourcePort.Curve,
+        Math.max(this.LoosePadding * 2, edge.GetMaxArrowheadLength()),
+        t,
+        this.SelfLoopSettings,
+        loop.index,
+        loop.count,
+      )
     }
 
     edge.smoothedPolyline = null // t.smoothedPolyline

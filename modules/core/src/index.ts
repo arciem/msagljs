@@ -1,4 +1,5 @@
 export {GeomEdge} from './layout/core/geomEdge'
+export type {SelfLoopSettings} from './layout/core/geomEdge'
 export {RectangleNode} from './math/geometry/RTree/rectangleNode'
 export {insertRange} from './utils/setOperations'
 export {

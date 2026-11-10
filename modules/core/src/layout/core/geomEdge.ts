@@ -15,6 +15,16 @@ import {Curve, LineSegment} from '../../math/geometry'
 import {Ellipse} from '../../math/geometry/ellipse'
 import {BezierSeg} from '../../math/geometry/bezierSeg'
 
+/** Optional controls for the geometry of self-loops. Every unset field keeps the original behavior. */
+export type SelfLoopSettings = {
+  /** how far the innermost self-loop of a node sticks out of the node */
+  size?: number
+  /** the additional stick-out, and the additional width on each side, of each next self-loop of the same node */
+  separation?: number
+  /** the largest width of the innermost self-loop; without it the width is half of the node width */
+  maxWidth?: number
+}
+
 export class GeomEdge extends GeomObject {
   *getSmoothPolyPoints(): Iterable<Point> {
     yield this.source.center
@@ -204,17 +214,60 @@ export class GeomEdge extends GeomObject {
     return this.source.toString() + '->' + this.target
   }
 
-  static RouteSelfEdge(boundaryCurve: ICurve, howMuchToStickOut: number, t: {smoothedPolyline: SmoothedPolyline}): ICurve {
+  /** Routes a self-loop as a box-shaped detour over one side of the node.
+   * Without settings, or with settings whose fields are all unset, this is the original fixed loop:
+   * half of the node width, sticking out by howMuchToStickOut, identical for every loop of the node.
+   * settings.size replaces howMuchToStickOut for the innermost loop, settings.maxWidth caps the innermost
+   * loop's width, and settings.separation nests the loops of the node: the loop at position 'index' sticks out,
+   * and is wider on each side, by index*separation more than the innermost one. The horizontal step shrinks when
+   * the node is too narrow to hold 'count' loops, so the loops stay distinct by their height.
+   * Obstacles are not consulted. */
+  static RouteSelfEdge(
+    boundaryCurve: ICurve,
+    howMuchToStickOut: number,
+    t: {smoothedPolyline: SmoothedPolyline},
+    settings: SelfLoopSettings = null,
+    index = 0,
+    count = 1,
+  ): ICurve {
     // we just need to find the box of the corresponding node
     const w = boundaryCurve.boundingBox.width
     const h = boundaryCurve.boundingBox.height
     const center = boundaryCurve.boundingBox.center
-    const p0 = new Point(center.x - w / 4, center.y)
-    const p1 = new Point(center.x - w / 4, center.y - h / 2 - howMuchToStickOut)
-    const p2 = new Point(center.x + w / 4, center.y - h / 2 - howMuchToStickOut)
-    const p3 = new Point(center.x + w / 4, center.y)
+    let halfWidth = w / 4
+    let stickOut = howMuchToStickOut
+    if (settings != null) {
+      if (settings.size != null) stickOut = settings.size
+      if (settings.maxWidth != null) halfWidth = Math.min(halfWidth, settings.maxWidth / 2)
+      if (settings.separation != null && settings.separation > 0 && index > 0) {
+        // keep the legs of the outermost loop away from the node corners
+        const widestHalfWidth = Math.max(halfWidth, w * GeomEdge.selfLoopWidestFractionOfNodeWidth)
+        const step = count > 1 ? Math.min(settings.separation, (widestHalfWidth - halfWidth) / (count - 1)) : 0
+        halfWidth += index * step
+        stickOut += index * settings.separation
+      }
+    }
+    const p0 = new Point(center.x - halfWidth, center.y)
+    const p1 = new Point(center.x - halfWidth, center.y - h / 2 - stickOut)
+    const p2 = new Point(center.x + halfWidth, center.y - h / 2 - stickOut)
+    const p3 = new Point(center.x + halfWidth, center.y)
     t.smoothedPolyline = SmoothedPolyline.mkFromPoints([p0, p1, p2, p3])
     return t.smoothedPolyline.createCurve()
+  }
+
+  /** the legs of the widest nested self-loop stay within this fraction of the node width from the node center */
+  static selfLoopWidestFractionOfNodeWidth = 0.4
+
+  /** The position of the edge among the self-loops of its node, in the order the loops were added to the graph,
+   * and the number of those loops. An edge detached from its node counts as the only loop. */
+  static selfLoopIndexAndCount(edge: GeomEdge): {index: number; count: number} {
+    const loops = edge.edge.source.selfEdges
+    let index = 0
+    for (const e of loops) {
+      if (e === edge.edge) return {index: index, count: loops.size}
+      index++
+    }
+    return {index: 0, count: 1}
   }
 
   underCollapsedGraph(): boolean {

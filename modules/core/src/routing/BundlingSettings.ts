@@ -1,4 +1,4 @@
-import {GeomEdge} from '../layout/core/geomEdge'
+import {GeomEdge, SelfLoopSettings} from '../layout/core/geomEdge'
 
 export type BundlingSettingsJSON = {
   capacityOverflowCoefficient?: number
@@ -114,6 +114,9 @@ export class BundlingSettings {
   }
 
   edgeSeparation: number = BundlingSettings.DefaultEdgeSeparation
+
+  /** optional self-loop geometry for bundle routing; a SplineRouter's own SelfLoopSettings, when set, takes precedence */
+  selfLoopSettings: SelfLoopSettings
 
   /** default edge separation */
   public static DefaultEdgeSeparation = 0.5

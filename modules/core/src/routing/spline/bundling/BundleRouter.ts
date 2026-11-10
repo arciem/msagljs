@@ -2,6 +2,7 @@
 // Currently the router will fail if there are node overlaps.
 
 import {Point, GeomEdge} from '../../..'
+import {SelfLoopSettings} from '../../../layout/core/geomEdge'
 import {HookUpAnywhereFromInsidePort} from '../../../layout/core/hookUpAnywhereFromInsidePort'
 import {Polyline, Curve, LineSegment} from '../../../math/geometry'
 import {IntersectionInfo} from '../../../math/geometry/intersectionInfo'
@@ -27,6 +28,9 @@ import {initRandom} from '../../../utils/random'
 
 export class BundleRouter extends Algorithm {
   bundlingSettings: BundlingSettings
+
+  /** optional self-loop geometry; when unset, bundlingSettings.selfLoopSettings is used */
+  selfLoopSettings: SelfLoopSettings
 
   edgesToRoute: GeomEdge[]
 
@@ -301,7 +305,15 @@ export class BundleRouter extends Algorithm {
     for (const edge of this.edgesToRoute) {
       if (edge.source === edge.target) {
         const t: {smoothedPolyline: SmoothedPolyline} = {smoothedPolyline: null}
-        edge.curve = GeomEdge.RouteSelfEdge(edge.source.boundaryCurve, this.LoosePadding * 2, t)
+        const loop = GeomEdge.selfLoopIndexAndCount(edge)
+        edge.curve = GeomEdge.RouteSelfEdge(
+          edge.source.boundaryCurve,
+          this.LoosePadding * 2,
+          t,
+          this.selfLoopSettings != null ? this.selfLoopSettings : this.bundlingSettings.selfLoopSettings,
+          loop.index,
+          loop.count,
+        )
       }
     }
   }
